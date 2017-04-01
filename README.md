@@ -1,7 +1,7 @@
 # What is this?
 This repository contains scripts which are maybe useful for using VPN Gate as openvpn-server.
 
-# Contentns
+# Contents
 ```
 .
 ├── config					# config for generate_openvpn_config

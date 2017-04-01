@@ -1,0 +1,64 @@
+#!/bin/env python
+
+
+"""Get remote host info"""
+
+
+from urllib.error import HTTPError
+from urllib.error import URLError
+from urllib.request import urlopen
+import json
+import socket
+import sys
+import prettytable
+import GeoIP
+
+
+def get_my_global_ipaddr(url):
+    """Get global IP address via httpbin.org."""
+
+    try:
+        ipaddr_object = urlopen(url)
+    except (HTTPError, URLError) as exception:
+        sys.stderr.write(exception)
+        sys.exit(1)
+
+    ipaddr_str = ipaddr_object.read()
+    ipaddr_dict = json.loads(ipaddr_str)
+    ipaddr = ipaddr_dict["origin"]
+    return ipaddr
+
+
+def get_remote_host_from_ipaddr(ipaddr):
+    """Get remote host information from given ipaddr."""
+
+    try:
+        remote_host_object = socket.gethostbyaddr(ipaddr)
+        remote_host = remote_host_object[0]
+    except socket.herror:
+        remote_host = ipaddr
+
+    return remote_host
+
+
+def get_country_info_from_ipaddr(ipaddr):
+    """Get country information in tuple from given ipaddr."""
+
+    geoip = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
+    name = geoip.country_name_by_addr(ipaddr)
+    code = geoip.country_code_by_addr(ipaddr)
+    return (name, code)
+
+
+if __name__ == "__main__":
+    URL = "https://httpbin.org/ip"
+
+    IP_ADDR = get_my_global_ipaddr(URL)
+    REMOTE_HOST = get_remote_host_from_ipaddr(IP_ADDR)
+    COUNTRY_NAME, COUNTRY_CODE = get_country_info_from_ipaddr(IP_ADDR)
+
+    HEADER = ["ip address", "remote host", "country", "country_code"]
+    CONTENT = [IP_ADDR, REMOTE_HOST, COUNTRY_NAME, COUNTRY_CODE]
+    TABLE = prettytable.PrettyTable(HEADER)
+    TABLE.add_row(CONTENT)
+    print(TABLE)

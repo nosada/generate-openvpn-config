@@ -1,0 +1,231 @@
+#!/bin/env python
+
+
+"""Generate openvpn-client config from VPN Gate CSV"""
+
+
+from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+from codecs import encode, decode
+from random import choice, shuffle
+import os
+import sys
+import configparser
+import argparse
+
+
+class GenerateOpenVPNConfig(object):
+    """Generate openvpn-client config from VPN Gate CSV"""
+
+    def __init__(self, conf_name):
+        """Constructor: parse config given by conf_name"""
+
+        def __parse_vpngate_section(conf):
+            section_name = "vpngate"
+            vpngate_url = conf.get(section_name, "url")
+            try:
+                server_country = conf.get(section_name, "country")
+            except configparser.NoOptionError:
+                server_country = None
+            try:
+                choice_factor = conf.get(section_name, "choice_factor")
+            except configparser.NoOptionError:
+                choice_factor = None
+            return (vpngate_url, server_country, choice_factor)
+
+        def __parse_openvpn_section(conf):
+            section_name = "openvpn"
+            saved_to = conf.get(section_name, "openvpn_client_conf_path")
+            try:
+                http_proxy_host = conf.get(section_name, "http_proxy_host")
+                http_proxy_port = conf.get(section_name, "http_proxy_port")
+            except configparser.NoOptionError:
+                http_proxy_host = None
+                http_proxy_port = None
+            return (saved_to, http_proxy_host, http_proxy_port)
+
+        self.conf = configparser.ConfigParser(allow_no_value=True)
+        self.conf.read(conf_name)
+
+        self.vpngate_url, self.server_country, self.choice_factor = \
+            __parse_vpngate_section(self.conf)
+        self.saved_to, http_proxy_host, http_proxy_port = \
+            __parse_openvpn_section(self.conf)
+
+        if self.choice_factor == "score":
+            self.factor_index = 2
+        elif self.choice_factor == "ping":
+            self.factor_index = 3
+        elif self.choice_factor == "speed":
+            self.factor_index = 4
+        elif self.choice_factor:
+            sys.stderr.write("wrong factor_index: {factor}\n".format(
+                factor=self.choice_factor))
+            sys.stderr.write("this must be either 'score', 'ping', 'speed'\n")
+            sys.stderr.write("I ignore your factor_index\n")
+
+        if None in [http_proxy_host, http_proxy_port]:
+            self.http_proxy_dict = None
+        else:
+            self.http_proxy_dict = {
+                "host": http_proxy_host,
+                "port": http_proxy_port
+                }
+
+    @staticmethod
+    def download_vpngate_csv(url):
+        """Download VPN Gate server CSV and return it as list."""
+
+        try:
+            vpngate = urlopen(url)
+        except (HTTPError, URLError) as exception:
+            sys.stderr.write("got error: {e}".format(
+                e=exception))
+            sys.exit(1)
+
+        vpngate_csv = vpngate.read()
+        server_list = vpngate_csv.decode().split("\r\n")
+        return server_list[2:-2]
+
+    def get_openvpn_client_config(self, server_list):
+        """Get openvpn-client config from given server_list.
+        openvpn-client config is filtered by given country (if given)."""
+
+        def __filter_by_country(server_list, country_code):
+            filtered_server_list = []
+            for server_info in server_list:
+                info_in_list = server_info.split(',')
+                country_in_list = info_in_list[6]
+                if country_code == country_in_list:
+                    filtered_server_list.append(server_info)
+            return filtered_server_list
+
+        def __choose_by_choice_factor(server_list, choice_factor,
+                                      factor_index):
+            server_dict = {}
+            shuffle(server_list)
+            for server_info in server_list:
+                server_info_list = server_info.split(',')
+                if len(server_info_list) > factor_index:
+                    try:
+                        factor = int(server_info_list[factor_index])
+                    except ValueError:
+                        if choice_factor == "ping":
+                            factor = sys.maxsize
+                        else:
+                            factor = -sys.maxsize
+                    server_dict[factor] = server_info_list
+            if choice_factor == "ping":
+                factor = min(server_dict.keys())
+            else:
+                factor = max(server_dict.keys())
+            info_in_list = server_dict[factor]
+            return info_in_list
+
+        def __choose_by_country(server_list, country_code):
+            for server_info in server_list:
+                if country_code in server_info:
+                    info_in_list = server_info.split(',')
+            return info_in_list
+
+        if self.server_country:
+            sys.stdout.write("filter openvpn server by country '{c}'\n".format(
+                c=self.server_country))
+            server_list = __filter_by_country(server_list,
+                                              self.server_country)
+            if not server_list:
+                sys.stderr.write("you specify wrong country code in config\n")
+                sys.stderr.write("given country code is '{c}'\n".format(
+                    c=self.server_country))
+                sys.exit(1)
+
+        if self.choice_factor:
+            sys.stdout.write("select openvpn server by {factor}\n".format(
+                factor=self.choice_factor))
+            info_in_list = __choose_by_choice_factor(
+                server_list, self.choice_factor, self.factor_index)
+        else:
+            sys.stderr.write("select openvpn server randomly.\n")
+            info_in_str = choice(server_list)
+            info_in_list = info_in_str.split(',')
+
+        sys.stdout.write("chose {name} in country '{country}'\n".format(
+            name=info_in_list[0],
+            country=info_in_list[5]))
+        config_in_base64 = encode(info_in_list[-1])
+        config_in_raw = decode(config_in_base64, "base64").decode()
+        config = '\n'.join(config_in_raw.split("\r\n"))
+        return config
+
+    @staticmethod
+    def edit_openvpn_client_config(config, http_proxy=None):
+        """Edit openvpn-client config.
+        if http_proxy is given as dict, replace http proxy info
+        in openvpn-client config."""
+
+        additional_config = '\n'.join([
+            "script-security 2",
+            ("setenv PATH /usr/local/sbin:/usr/local/bin:"
+             "/usr/sbin:/usr/bin:/sbin:/bin"),
+            "up /etc/openvpn/update-systemd-resolved",
+            "down /etc/openvpn/update-systemd-resolved",
+            "down-pre"
+            ])
+        config = config + additional_config + '\n'
+
+        if http_proxy:
+            config = config.replace(";[proxy server]", http_proxy["host"])
+            config = config.replace(";[proxy port]", http_proxy["port"])
+            config = config.replace(";http-proxy-retry", "connect-retry-max 1")
+
+        return config
+
+    @staticmethod
+    def save_openvpn_client_config(config, conf_location):
+        """Edit openvpn-client config to given conf_location"""
+
+        with open(conf_location, 'w') as conf_file:
+            conf_file.write(config)
+        sys.stdout.write("openvpn-client config is saved to '{l}'.\n".format(
+            l=conf_location))
+
+    def generate_conf(self):
+        """Run series of tasks below:
+            - download csv from VPN Gate
+            - choose openvpn server from csv
+            - edit openvpn-client config
+            - write out openvpn-client config"""
+
+        vpngate_server_list = self.download_vpngate_csv(self.vpngate_url)
+        openvpn_client_conf = self.get_openvpn_client_config(
+            vpngate_server_list)
+
+        if self.http_proxy_dict:
+            openvpn_client_conf = self.edit_openvpn_client_config(
+                openvpn_client_conf,
+                self.http_proxy_dict)
+        else:
+            openvpn_client_conf = \
+                self.edit_openvpn_client_config(openvpn_client_conf)
+
+        self.save_openvpn_client_config(openvpn_client_conf, self.saved_to)
+
+
+if __name__ == "__main__":
+    PARSER = argparse.ArgumentParser(
+        description="Generate openvpn-client config from VPN Gate CSV")
+    PARSER.add_argument(
+        "--conf",
+        metavar="<config>",
+        type=str,
+        help="Config file")
+
+    ARGS = PARSER.parse_args()
+    if ARGS.conf:
+        CONFIG_NAME = ARGS.conf
+    else:
+        SCRIPT_DIR = '/'.join(__file__.split('/')[:-1])
+        CONFIG_NAME = os.path.join(SCRIPT_DIR, "config")
+
+    GET_OPENVPN_CLIENT_CONFIG = GenerateOpenVPNConfig(CONFIG_NAME)
+    GET_OPENVPN_CLIENT_CONFIG.generate_conf()

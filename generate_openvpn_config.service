@@ -1,0 +1,11 @@
+[Unit]
+Description=openvpn-client config generator (using VPN Gate)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/nosada/Scripts/generate_openvpn_config/generate_openvpn_config --conf /home/nosada/Scripts/generate_openvpn_config/config
+
+[Install]
+WantedBy=default.target

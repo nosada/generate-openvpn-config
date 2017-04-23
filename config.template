@@ -3,13 +3,13 @@
 url = http://www.vpngate.net/api/iphone/
 
 # Country code for openvpn server
-country = JP
+country =
 
 # Choice factor means below:
 # - score: score for openvpn server which is evaluated in VPN Gate
 # - ping: ping speed on VPN Gate
 # - speed: (maybe) bandwidth on VPN Gate
-choice_factor = score
+choice_factor =
 
 
 [openvpn]
@@ -20,4 +20,4 @@ choice_factor = score
 #http_proxy_port =
 
 # Location of openvpn-client config
-openvpn_client_conf_path = /ramdisk/vpngate.conf
+openvpn_client_conf_path =

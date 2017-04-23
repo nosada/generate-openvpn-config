@@ -1,10 +1,16 @@
 # What is this?
 This repository contains scripts which are maybe useful for using VPN Gate as openvpn-server.
 
+# Dependencies
+(below are found in Arch Linux repository or AUR)
+- systemd
+- openvpn-update-systemd-resolved
+
+
 # Contents
 ```
 .
-├── config					# config for generate_openvpn_config
+├── config.template				# sample config for generate_openvpn_config
 ├── generate_openvpn_config			# generate openvpn-client config using VPN Gate openvpn-server list
 ├── generate_openvpn_config.service		# systemd unit for generate_openvpn_config (recommended to use this as user service)
 ├── get_remotehost				# get remotehost

@@ -45,7 +45,12 @@ class GenerateOpenVPNConfig(object):
             return (saved_to, http_proxy_host, http_proxy_port)
 
         self.conf = configparser.ConfigParser(allow_no_value=True)
-        self.conf.read(conf_name)
+        if os.path.exists(conf_name):
+            self.conf.read(conf_name)
+        else:
+            sys.stderr.write("config {conf} doesn't exists\n".format(
+                conf=conf_name))
+            sys.exit(1)
 
         self.vpngate_url, self.server_country, self.choice_factor = \
             __parse_vpngate_section(self.conf)
@@ -226,6 +231,8 @@ if __name__ == "__main__":
     else:
         SCRIPT_DIR = '/'.join(__file__.split('/')[:-1])
         CONFIG_NAME = os.path.join(SCRIPT_DIR, "config")
+    sys.stdout.write("use config located at {conf}\n".format(
+        conf=CONFIG_NAME))
 
     GET_OPENVPN_CLIENT_CONFIG = GenerateOpenVPNConfig(CONFIG_NAME)
     GET_OPENVPN_CLIENT_CONFIG.generate_conf()

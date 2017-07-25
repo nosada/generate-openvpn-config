@@ -1,0 +1,94 @@
+#!/bin/env python
+
+"""List available countries from VPN Gate CSV"""
+
+from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+import argparse
+import configparser
+import os
+import sys
+import prettytable
+
+
+class ListAvailableCountries(object):
+    """List available countries from VPN Gate CSV"""
+
+    def __init__(self, conf_name):
+        """Constructor: parse config given by conf_name"""
+        self.conf = configparser.ConfigParser(allow_no_value=True)
+        if os.path.exists(conf_name):
+            self.conf.read(conf_name)
+        else:
+            sys.stderr.write("config {conf} doesn't exists\n".format(
+                conf=conf_name))
+            sys.exit(1)
+
+        section_name = "vpngate"
+        self.vpngate_url = self.conf.get(section_name, "url")
+
+    @staticmethod
+    def download_vpngate_csv(url):
+        """Download VPN Gate server CSV and return it as list."""
+        try:
+            vpngate = urlopen(url)
+        except (HTTPError, URLError) as exception:
+            sys.stderr.write("got error: {e}".format(
+                e=exception))
+            sys.exit(1)
+        vpngate_csv = vpngate.read()
+        server_list = vpngate_csv.decode().split("\r\n")
+        return server_list[2:-2]
+
+    @staticmethod
+    def get_country_code_dicts(server_list):
+        """Generate 2 available countries dictionaries, which have below info:
+            - ISO 3166 alpha-2 (eg. JP) -> VPNGate servers (eg. 28)
+            - ISO 3166 alpha-2 (eg. JP) -> Country name (eg. Japan)"""
+        code_to_number = {}
+        code_to_name = {}
+        for server_info in server_list:
+            info_in_list = server_info.split(',')
+            country_name = info_in_list[5]
+            country_code = info_in_list[6]
+            if country_code in code_to_number:
+                code_to_number[country_code] += 1
+            else:
+                code_to_number[country_code] = 1
+            code_to_name[country_code] = country_name
+        return code_to_number, code_to_name
+
+    def get_list(self):
+        """Generate available countries list"""
+        server_list = self.download_vpngate_csv(self.vpngate_url)
+        code_to_number, code_to_name = self.get_country_code_dicts(server_list)
+        header = ["alpha-2", "country name", "VPNGate servers"]
+        table = prettytable.PrettyTable(header)
+        for country_code in code_to_name:
+            country_name = code_to_name[country_code]
+            vpngate_servers = code_to_number[country_code]
+            content = [country_code, country_name, vpngate_servers]
+            table.add_row(content)
+        print(table.get_string(sortby="VPNGate servers", reversesort=True))
+
+
+if __name__ == "__main__":
+    PARSER = argparse.ArgumentParser(
+        description="List available countries from VPN Gate CSV")
+    PARSER.add_argument(
+        "--conf",
+        metavar="<config>",
+        type=str,
+        help="Config file")
+
+    ARGS = PARSER.parse_args()
+    if ARGS.conf:
+        CONFIG_NAME = ARGS.conf
+    else:
+        SCRIPT_DIR = '/'.join(__file__.split('/')[:-1])
+        CONFIG_NAME = os.path.join(SCRIPT_DIR, "config")
+    sys.stdout.write("use config located at {conf}\n".format(
+        conf=CONFIG_NAME))
+
+    LIST_AVAILABLE_COUNTRIES = ListAvailableCountries(CONFIG_NAME)
+    LIST_AVAILABLE_COUNTRIES.get_list()

@@ -1,0 +1,23 @@
+[vpngate]
+# VPN Gate URL which is source for openvpn server list in CSV
+url = http://www.vpngate.net/api/iphone/
+
+# Country code for openvpn server
+country = FR
+
+# Choice factor means below:
+# - score: score for openvpn server which is evaluated in VPN Gate
+# - ping: ping speed on VPN Gate
+# - speed: (maybe) bandwidth on VPN Gate
+choice_factor = score
+
+
+[openvpn]
+# If you want to use HTTP Proxy between your host and openvpn server, specify proxy host (ex. 192.168.1.123)
+#http_proxy_host =
+
+# If you want to use HTTP Proxy between your host and openvpn server, specify proxy port (ex. 8080)
+#http_proxy_port =
+
+# Location of openvpn-client config
+openvpn_client_conf_path = /ramdisk/vpngate.conf

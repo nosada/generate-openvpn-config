@@ -16,7 +16,7 @@ This repository contains scripts which are maybe useful for using VPN Gate as op
 ├── get_remotehost			# get remotehost of machine where it run
 ├── list_available_country_codes	# get available countries where VPNGate server runs
 ├── Makefile				# set up generate_openvpn_config.service as user service
-├── README.md			# this file
+├── README.md				# this file
 └── requirements.txt			# python requirements
 ```
 

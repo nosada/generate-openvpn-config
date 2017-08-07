@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/nosada/Scripts/generate_openvpn_config/generate_openvpn_config --conf /home/nosada/Scripts/generate_openvpn_config/config
+ExecStart=<PATH_TO>/generate_openvpn_config --conf <PATH_TO>/files/config
 
 [Install]
 WantedBy=default.target

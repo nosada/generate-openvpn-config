@@ -10,30 +10,35 @@ import os
 import sys
 import prettytable
 
+from lib.logger import return_logger
+
 
 class ListAvailableCountries(object):
     """List available countries from VPN Gate CSV"""
 
     def __init__(self, conf_name):
         """Constructor: parse config given by conf_name"""
-        self.conf = configparser.ConfigParser(allow_no_value=True)
+        self.logger = return_logger()
+
+        conf = configparser.ConfigParser(allow_no_value=True)
         if os.path.exists(conf_name):
-            self.conf.read(conf_name)
+            conf.read(conf_name)
         else:
-            sys.stderr.write("config {conf} doesn't exists\n".format(
-                conf=conf_name))
+            message = "config {conf} doesn't exist".format(
+                conf=conf_name)
+            self.logger.error(message)
             sys.exit(1)
 
         section_name = "vpngate"
-        self.vpngate_url = self.conf.get(section_name, "url")
+        self.vpngate_url = conf.get(section_name, "url")
 
     @staticmethod
-    def download_vpngate_csv(url):
+    def download_vpngate_csv(url, logger=None):
         """Download VPN Gate server CSV and return it as list."""
         try:
             vpngate = urlopen(url)
         except (HTTPError, URLError) as exception:
-            sys.stderr.write("got error: {e}".format(
+            logger.error("got error: {e}".format(
                 e=exception))
             sys.exit(1)
         vpngate_csv = vpngate.read()
@@ -58,9 +63,10 @@ class ListAvailableCountries(object):
             code_to_name[country_code] = country_name
         return code_to_number, code_to_name
 
-    def get_list(self):
+    def get_list(self, logger=None):
         """Generate available countries list"""
-        server_list = self.download_vpngate_csv(self.vpngate_url)
+        server_list = self.download_vpngate_csv(self.vpngate_url,
+                                                logger=self.logger)
         code_to_number, code_to_name = self.get_country_code_dicts(server_list)
         header = ["alpha-2", "country name", "VPNGate servers"]
         table = prettytable.PrettyTable(header)
@@ -69,7 +75,8 @@ class ListAvailableCountries(object):
             vpngate_servers = code_to_number[country_code]
             content = [country_code, country_name, vpngate_servers]
             table.add_row(content)
-        print(table.get_string(sortby="VPNGate servers", reversesort=True))
+        logger.info(table.get_string(sortby="VPNGate servers",
+                                     reversesort=True))
 
 
 if __name__ == "__main__":
@@ -86,9 +93,6 @@ if __name__ == "__main__":
         CONFIG_NAME = ARGS.conf
     else:
         SCRIPT_DIR = '/'.join(__file__.split('/')[:-1])
-        CONFIG_NAME = os.path.join(SCRIPT_DIR, "config")
-    sys.stdout.write("use config located at {conf}\n".format(
-        conf=CONFIG_NAME))
-
+        CONFIG_NAME = os.path.join(SCRIPT_DIR, "files", "config")
     LIST_AVAILABLE_COUNTRIES = ListAvailableCountries(CONFIG_NAME)
-    LIST_AVAILABLE_COUNTRIES.get_list()
+    LIST_AVAILABLE_COUNTRIES.get_list(LIST_AVAILABLE_COUNTRIES.logger)

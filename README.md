@@ -10,15 +10,21 @@ This repository contains scripts which are maybe useful for using VPN Gate as op
 # Contents
 ```
 .
-├── config.template			# config template for generate_openvpn_config
-├── generate_openvpn_config		# generate openvpn-client config using VPNGate CSV
-├── generate_openvpn_config.service	# make generate_openvpn_config as systemd service
-├── get_remotehost			# get remotehost of machine where it run
-├── list_available_country_codes	# get available countries where VPNGate server runs
-├── Makefile				# set up generate_openvpn_config.service as user service
+├── files
+│   ├── config.template			# config template for generate_openvpn_config
+│   └── generate_openvpn_config.service	# make generate_openvpn_config as systemd service
+├── generate_openvpn_config			# generate openvpn-client config using VPNGate CSV
+├── get_remotehost				# get remotehost of machine where it run
+├── __init__.py				# init of generate_openvpn_config
+├── lib
+│   ├── __init__.py				# init of generate_openvpn_config.lib
+│   ├── logger.py				# log information while processing
+├── list_available_country_codes		# get available countries where VPNGate server runs
+├── Makefile					# set up generate_openvpn_config.service as user service
 ├── README.md				# this file
-└── requirements.txt			# python requirements
+└── requirements.txt				# python requirements
 ```
+
 
 # How to use
 ```

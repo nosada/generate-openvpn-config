@@ -10,6 +10,7 @@ from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 from codecs import encode, decode
 from random import choice, shuffle
+from textwrap import dedent
 
 from lib.logger import return_logger
 
@@ -126,6 +127,7 @@ class GenerateOpenVPNConfig(object):
     @staticmethod
     def download_vpngate_csv(url, logger=None):
         """Download VPN Gate server CSV and return it as list."""
+
         try:
             vpngate = urlopen(url)
         except (HTTPError, URLError) as exception:
@@ -139,6 +141,7 @@ class GenerateOpenVPNConfig(object):
     def get_openvpn_client_config(self, server_list, logger=None):
         """Get openvpn-client config from given server_list.
         openvpn-client config is filtered by given country (if given)."""
+
         if self.server_country:
             logger.info("filter openvpn server by country '{c}'".format(
                 c=self.server_country))
@@ -173,15 +176,16 @@ class GenerateOpenVPNConfig(object):
         """Edit openvpn-client config.
         if http_proxy is given as dict, replace http proxy info
         in openvpn-client config."""
-        additional_config = '\n'.join([
-            "script-security 2",
-            ("setenv PATH /usr/local/sbin:/usr/local/bin:"
-             "/usr/sbin:/usr/bin:/sbin:/bin"),
-            "up /etc/openvpn/scripts/update-systemd-resolved",
-            "down /etc/openvpn/scripts/update-systemd-resolved",
-            "down-pre"
-            ])
-        config = config + additional_config + '\n'
+
+        path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        additional_config = """
+            script-security 2
+            setenv PATH {path}
+            up /etc/openvpn/scripts/update-systemd-resolved
+            down /etc/openvpn/scripts/update-systemd-resolved
+            down-pre
+            """
+        config = config + dedent(additional_config).format(path=path)
 
         if http_proxy:
             config = config.replace(";[proxy server]", http_proxy["host"])
@@ -192,6 +196,7 @@ class GenerateOpenVPNConfig(object):
     @staticmethod
     def save_openvpn_client_config(config, conf_location, logger=None):
         """Edit openvpn-client config to given conf_location"""
+
         with open(conf_location, 'w') as conf_file:
             conf_file.write(config)
         logger.info("openvpn-client config is saved to '{loc}'".format(
@@ -203,6 +208,7 @@ class GenerateOpenVPNConfig(object):
             - choose openvpn server from csv
             - edit openvpn-client config
             - write out openvpn-client config"""
+
         vpngate_server_list = self.download_vpngate_csv(self.vpngate_url,
                                                         logger=self.logger)
         openvpn_client_conf = self.get_openvpn_client_config(

@@ -1,4 +1,4 @@
-TARGET := generate_openvpn_config
+TARGET := generate-openvpn-config
 SERVICE_DEST := ${HOME}/.config/systemd/user
 
 install:

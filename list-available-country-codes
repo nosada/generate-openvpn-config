@@ -13,7 +13,7 @@ import prettytable
 from lib.logger import return_logger
 
 
-class ListAvailableCountries(object):
+class ListAvailableCountries():
     """List available countries from VPN Gate CSV"""
 
     def __init__(self, conf_name):
@@ -24,8 +24,7 @@ class ListAvailableCountries(object):
         if os.path.exists(conf_name):
             conf.read(conf_name)
         else:
-            message = "config {conf} doesn't exist".format(
-                conf=conf_name)
+            message = f"config {conf_name} doesn't exist"
             self.logger.error(message)
             sys.exit(1)
 
@@ -36,13 +35,12 @@ class ListAvailableCountries(object):
     def download_vpngate_csv(url, logger=None):
         """Download VPN Gate server CSV and return it as list."""
         try:
-            vpngate = urlopen(url)
+            with urlopen(url) as vpngate:
+                vpngate_csv = vpngate.read()
+                server_list = vpngate_csv.decode().split("\r\n")
         except (HTTPError, URLError) as exception:
-            logger.error("got error: {e}".format(
-                e=exception))
+            logger.error("Got error: %s", exception)
             sys.exit(1)
-        vpngate_csv = vpngate.read()
-        server_list = vpngate_csv.decode().split("\r\n")
         return server_list[2:-2]
 
     @staticmethod
@@ -68,14 +66,13 @@ class ListAvailableCountries(object):
         server_list = self.download_vpngate_csv(self.vpngate_url,
                                                 logger=self.logger)
         code_to_number, code_to_name = self.get_country_code_dicts(server_list)
-        header = ["alpha-2", "country name", "VPNGate servers"]
+        header = ["Country Code", "Country Name", "VPN Gate Servers"]
         table = prettytable.PrettyTable(header)
-        for country_code in code_to_name:
-            country_name = code_to_name[country_code]
+        for country_code, country_name in code_to_name.items():
             vpngate_servers = code_to_number[country_code]
             content = [country_code, country_name, vpngate_servers]
             table.add_row(content)
-        logger.info(table.get_string(sortby="VPNGate servers",
+        logger.info(table.get_string(sortby="VPN Gate Servers",
                                      reversesort=True))
 
 

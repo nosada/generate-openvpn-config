@@ -8,33 +8,34 @@ from urllib.request import urlopen
 import json
 import socket
 import sys
+
 import prettytable
-import GeoIP
+
 
 from lib.logger import return_logger
 
 
-class GetRemoteHost(object):
+class GetRemoteHost():
     """Class for getting remote host info"""
 
     def __init__(self):
-        self.url = "https://httpbin.org/ip"
-        header = ["ip address", "remote host", "country", "country_code"]
+        self.url = "https://ipinfo.io"
+        header = ["IP Address", "Remote Host", "Region", "Country Code"]
         self.table = prettytable.PrettyTable(header)
         self.logger = return_logger()
 
     @staticmethod
-    def get_my_global_ipaddr(url, logger=None):
-        """Get global IP address via httpbin.org."""
+    def get_my_global_ip_info(url, logger=None):
+        """Get global IP address via ipinfo.io."""
+
         try:
-            ipaddr_object = urlopen(url)
+            with urlopen(url) as ipinfo_object:
+                ipinfo_str = ipinfo_object.read()
+                ipinfo = json.loads(ipinfo_str)
         except (HTTPError, URLError) as exception:
             logger.error(exception)
             sys.exit(1)
-        ipaddr_str = ipaddr_object.read()
-        ipaddr_dict = json.loads(ipaddr_str)
-        ipaddr = ipaddr_dict["origin"]
-        return ipaddr
+        return ipinfo
 
     @staticmethod
     def get_remote_host_from_ipaddr(ipaddr):
@@ -46,21 +47,20 @@ class GetRemoteHost(object):
             remote_host = ipaddr
         return remote_host
 
-    @staticmethod
-    def get_country_info_from_ipaddr(ipaddr):
+    def get_country_info_from_ipaddr(self):
         """Get country information in tuple from given ipaddr."""
-        geoip = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-        name = geoip.country_name_by_addr(ipaddr)
-        code = geoip.country_code_by_addr(ipaddr)
-        return (name, code)
+        ip_info = self.get_my_global_ip_info(self.url)
+        region = ip_info["region"]
+        country_code = ip_info["country"]
+        return (region, country_code)
 
     def do_task(self):
         """Get information and add them to table instance"""
-        ip_addr = self.get_my_global_ipaddr(self.url)
+        ip_addr = self.get_my_global_ip_info(self.url)["ip"]
         remote_host = self.get_remote_host_from_ipaddr(ip_addr)
-        country_name, country_code = self.get_country_info_from_ipaddr(ip_addr)
+        region, country_code = self.get_country_info_from_ipaddr()
 
-        content = [ip_addr, remote_host, country_name, country_code]
+        content = [ip_addr, remote_host, region, country_code]
         self.table.add_row(content)
         self.logger.info(self.table)
 

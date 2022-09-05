@@ -15,7 +15,7 @@ from textwrap import dedent
 from lib.logger import return_logger
 
 
-class GenerateOpenVPNConfig(object):
+class GenerateOpenVPNConfig():
     """Generate openvpn-client config from VPN Gate CSV"""
 
     def __init__(self, conf_name):
@@ -27,8 +27,7 @@ class GenerateOpenVPNConfig(object):
         if os.path.exists(conf_name):
             conf.read(conf_name)
         else:
-            message = "config {conf} doesn't exist".format(
-                conf=conf_name)
+            message = f"Config {conf_name} doesn't exist"
             self.logger.error(message)
             sys.exit(1)
 
@@ -44,11 +43,9 @@ class GenerateOpenVPNConfig(object):
         elif self.choice_factor == "speed":
             self.factor_index = 4
         elif self.choice_factor:
-            message = "wrong factor_index: {factor}".format(
-                factor=self.choice_factor)
-            self.logger.error(message)
-            self.logger.error("this must be either 'score', 'ping', 'speed'")
-            self.logger.error("ignore your factor_index")
+            self.logger.error("Wrong factor_index: %s", self.choice_factor)
+            self.logger.error("Either one of 'score', 'ping', 'speed'")
+            self.logger.error("Ignoring your factor_index")
 
         if None in [http_proxy_host, http_proxy_port]:
             self.http_proxy_dict = None
@@ -56,7 +53,7 @@ class GenerateOpenVPNConfig(object):
             self.http_proxy_dict = {
                 "host": http_proxy_host,
                 "port": http_proxy_port
-                }
+            }
 
     @staticmethod
     def __parse_vpngate_section(conf):
@@ -118,24 +115,16 @@ class GenerateOpenVPNConfig(object):
         return info_in_list
 
     @staticmethod
-    def __choose_by_country(server_list, country_code):
-        for server_info in server_list:
-            if country_code in server_info:
-                info_in_list = server_info.split(',')
-        return info_in_list
-
-    @staticmethod
     def download_vpngate_csv(url, logger=None):
         """Download VPN Gate server CSV and return it as list."""
 
         try:
-            vpngate = urlopen(url)
+            with urlopen(url) as vpngate:
+                vpngate_csv = vpngate.read()
+                server_list = vpngate_csv.decode().split("\r\n")
         except (HTTPError, URLError) as exception:
-            logger.error("got error: {e}".format(
-                e=exception))
+            logger.error("Got error: %s", exception)
             sys.exit(1)
-        vpngate_csv = vpngate.read()
-        server_list = vpngate_csv.decode().split("\r\n")
         return server_list[2:-2]
 
     def get_openvpn_client_config(self, server_list, logger=None):
@@ -143,29 +132,24 @@ class GenerateOpenVPNConfig(object):
         openvpn-client config is filtered by given country (if given)."""
 
         if self.server_country:
-            logger.info("filter openvpn server by country '{c}'".format(
-                c=self.server_country))
+            logger.info(f"Filter openvpn server by country '{self.server_country}'")
             server_list = self.__filter_by_country(server_list,
                                                    self.server_country)
             if not server_list:
-                logger.error("you specify wrong country code in config")
-                logger.error("given country code is '{c}'".format(
-                    c=self.server_country))
+                logger.error("You specified wrong country code in config")
+                logger.error(f"Given country code is '{self.server_country}'")
                 sys.exit(1)
 
         if self.choice_factor:
-            logger.info("select openvpn server by {factor}".format(
-                factor=self.choice_factor))
+            logger.info(f"Select openvpn server by {self.choice_factor}")
             info_in_list = self.__choose_by_choice_factor(
                 server_list, self.choice_factor, self.factor_index)
         else:
-            logger.info("select openvpn server randomly")
+            logger.info("Select openvpn server randomly")
             info_in_str = choice(server_list)
             info_in_list = info_in_str.split(',')
 
-        logger.info("chose {name} in country '{country}'".format(
-            name=info_in_list[0],
-            country=info_in_list[5]))
+        logger.info(f"Choose {info_in_list[0]} in country '{info_in_list[5]}'")
         config_in_base64 = encode(info_in_list[-1])
         config_in_raw = decode(config_in_base64, "base64").decode()
         config = '\n'.join(config_in_raw.split("\r\n"))
@@ -184,7 +168,7 @@ class GenerateOpenVPNConfig(object):
             up /etc/openvpn/scripts/update-systemd-resolved
             down /etc/openvpn/scripts/update-systemd-resolved
             down-pre
-            """
+        """
         config = config + dedent(additional_config).format(path=path)
 
         if http_proxy:
@@ -197,10 +181,9 @@ class GenerateOpenVPNConfig(object):
     def save_openvpn_client_config(config, conf_location, logger=None):
         """Edit openvpn-client config to given conf_location"""
 
-        with open(conf_location, 'w') as conf_file:
+        with open(conf_location, 'w', encoding="ascii") as conf_file:
             conf_file.write(config)
-        logger.info("openvpn-client config is saved to '{loc}'".format(
-            loc=conf_location))
+        logger.info(f"openvpn-client config is saved to '{conf_location}'")
 
     def generate_conf(self):
         """Run series of tasks below:
